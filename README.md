@@ -1,0 +1,2 @@
+# Movie-High-Audience-Ratings-vs-High-Profitibility-Statistical-and-Machine-Learning
+The project determines what leads Hollywood movies to have high profitability and have high audience scores, and how profitability and audience score correlate with each other by using many different machine learning techniques to determine this: EDA, K-means clustering, decision trees, bagging, boosting, and random forests.
