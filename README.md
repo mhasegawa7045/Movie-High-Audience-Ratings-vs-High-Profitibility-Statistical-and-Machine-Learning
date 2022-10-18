@@ -1,4 +1,4 @@
-# Movie-High-Audience-Ratings-vs-High-Profitibility-Statistical-and-Machine-Learning
+# Movie's High-Audience Ratings vs High-Profitibility: Statistical and Machine Learning Project
 
 The box office industry is one of the biggest global markets in the entertainment industry. According to *IMDbPro*,the industry has a yearly average box office revenue of around 11 to 14 million dollars and a yearly total gross of around 9 to 12 billion dollars. 
 
