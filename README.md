@@ -2,9 +2,9 @@
 
 The box office industry is one of the biggest global markets in the entertainment industry. According to *IMDbPro*,the industry has a yearly average box office revenue of around 11 to 14 million dollars and a yearly total gross of around 9 to 12 billion dollars. 
 
-The objective of this project is to create models that predict a film's `Profitability` and `AudienceScore`, which can assist in improved movie storytelling. Movie studios would find these insights useful since it could help them determine the best kind of movies that will lead to larger profits and more positive feedback on their movies for better publicity.
+The objective is to create models that predict a film's `Profitability` and `AudienceScore`, and find the correlation between `Profitability` and `AudienceScore`. Movie studios would find these insights useful since it would lead to better movie storytelling, which can lead to larger profits and more positive feedback.
 
-This will be done with *statistical and machine learning techniques*: **EDA**, **decision trees**, **bagging**, **boosting**, and **random forests**. These techniques will help determine the pattern for high-earning and highly-rated movies. This project will be done in RStudio and RCloud with the dataset, `HollywoodMovies`, provided by *Dr. Reinaldo Sanchez-Arias*.
+The project deploys these *statistical and machine learning techniques*: **EDA**, **K-means clustering**,**decision trees**, **bagging**, **boosting**, and **random forests**. This was developed in RStudio and RCloud with the dataset, `HollywoodMovies`, provided by *Dr. Reinaldo Sanchez-Arias*.
 
 ## Resources
 Fonseca, L. (2019, August 15). Clustering analysis in R using K-means. Retrieved April 24, 2021, from https://towardsdatascience.com/clustering-analysis-in-r-using-k-means-73eca4fb7967
