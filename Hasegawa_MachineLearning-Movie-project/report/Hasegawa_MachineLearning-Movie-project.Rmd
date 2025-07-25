@@ -1,0 +1,899 @@
+---
+pdf_document: default
+author: "Marie Hasegawa - mhasegawa7045@floridapoly.edu"
+df_print: paged
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+title: What makes a Movie have High Audience Ratings and High Profit? What is the
+  Relatinship between a Movie's High Audience Ratings and High Profit?
+---
+
+# Appendix 
+- Appendix
+- Library of Packages
+- Project Overview
+- Exploratory Data Analysis
+  - `Profitability` Column
+  - `AudienceScore` Column
+- Methods
+  - `Profitability` vs. `AudienceScore` Grouped by `HighProfit` 
+  - `Profitability` and `AudienceScore` K-Means Clustering
+    - Elbow Method and Silhouette method to determine optimal clusters
+    - K-Means Clustering of k=2,3,4
+  - `Profitability` Column
+    - Decision Tree `Profitability`
+      - With Categorical Variables
+      - Removed Categorical Variables
+    - Bagging
+    - Random Forest
+    - Boosting
+    - Model Comparison High `Profitability`
+  - `AudienceScore` Column
+    - Decision Tree `Profitability`
+      - With Categorical Variables
+      - Removed Categorical Variables
+    - Bagging
+    - Random Forest
+    - Boosting
+    - Model Comparison High AudienceScore
+- Conclusion
+  
+
+
+# Library of Packages
+
+|**Variables** |**Description**               |
+|:-------------|:-----------------------------|
+|`Movie`       |Title of movie                |
+|`LeadStudio`  |Studio that released the movie|
+|`RottenTomatoes` |Rotten Tomatoes rating (reviewers)|
+|`AudienceScore`|Audience rating (via Rotten Tomatoes)|
+|`Story` |General theme - one of 21 themes      |
+|`Genre`|Type of Movie: Action, Adventure, Animation, Comedy, Drama, Fantasy, Horror, Romance, or Thriller |
+|`TheatersOpenWeek`|Number of screens for opening weekend|
+|`BOAverageOpenWeek`|	Average box office income per theater - opening weekend|
+|`DomesticGross`|Gross income for domestic viewers (in millions) |
+|`ForeignGross`|Gross income for foreign viewers (in millions)|
+|`WorldGross`|Gross income for all viewers (in millions)|
+|`Budget`  |Production budget (in millions)|
+|`Profitability` |WorldGross/Budget    |
+|`OpeningWeekend`   |Opening weekend gross (in millions)|
+
+
+```{r}
+library(tidyverse)
+library(ISLR)
+library(caret)
+library(tidyverse)
+#install.packages("skimr")
+library(skimr) 
+library(rpart.plot)
+library(pROC)
+library(ggplot2)
+#install.packages("factoextra")
+library(factoextra)
+#install.packages("gridExtra")
+library(gridExtra)
+
+
+movie <- read_csv("https://raw.githubusercontent.com/reisanar/datasets/master/HollywoodMovies.csv")
+```
+
+
+# Project Overview
+
+The box office industry is one of the biggest global markets in the entertainment industry. According to IMDbPro, the industry has a yearly average box office revenue of around 11 to 14 million dollars and a yearly total gross of around 9 to 12 billion dollars.
+The project wants to determine what makes a Hollywood movie have a high `Profitability` and what makes it have a high `AudienceScore`, and how `Profitability` and `AudienceScore` correlate with each other. Movie studios would find this information resourceful since it could help them determine the best kind of movies that will lead to larger profits and more positive feedback on their movies for better publicity.
+
+This will be done with EDA, K-means clustering, decision trees, bagging, boosting, and random forests that will help determine the pattern for high-earning and highly-rated movies. This project will be done in RStudio and RCloud with the dataset, `HollywoodMovies`, provided by Dr. Reinaldo Sanchez-Arias.
+
+# Explatory Data Analysis
+
+
+```{r}
+movie<-movie %>%
+  na.omit()
+sample_n(movie, size=20)
+```
+
+```{r}
+movie %>%
+  filter(Profitability>=400)
+```
+
+
+The movie(`HollywoodMovies`)  dataset originally had many NA values in all columns, which needed to be removed. The code above is used to remove NA values with `na.omit()` since it needs to be removed in order to train the code and create decision and random trees.
+
+
+
+## `Profitability` Column
+
+```{r}
+summary(movie$Profitability)
+```
+The variable, `Profitability`, in the dataset is the division between `WorldGross` and `Budget` in millions. The variables is used to determine if the movie made a huge profit beween  `WorldGross` and `Budget` in millions. The variable, `Profitability`, will be used in this section to see what factors affect `Profitability`of a movie and how highly-profited movies and lowly profited movies differ from each other.
+The variable, `HighProfit`, will be mutated from the variable, `Profitability`, in order to differ between high-profited movies and low-profited movies. Based on the summarization shown above, the project will define the variable,`HighProfit`, to determine  a movie is highly-profitable if `Profitability` has a value of 400 or more, since the mean is 356.04 and the `third-quarter` is 397.08. The `HighProfit` variable can not be in the thousands like in the `max value` of 6694.40, since those values are considered an outlier becuase there are too few points to consider it.
+
+
+```{r}
+raw_A<-ggplot(data=movie) +
+  geom_histogram(aes(x=Profitability)) +
+  labs(title="Bar Chart of Profitability")
+```
+
+```{r}
+rawB_Prof<-ggplot(data=movie) +
+  geom_histogram(aes(x=Profitability)) +
+  xlim(0,2000) +
+  labs(title="Bar Chart of Profitability Removed Outliers")
+```
+
+```{r}
+movieB<-movie %>%
+  mutate(HighProfit=ifelse(movie$Profitability >= 400, "Yes", "No")) 
+
+mBHP_F<-movieB %>%
+  ggplot(aes(Profitability, colour = HighProfit)) +
+  geom_freqpoly() +
+  xlim(0,2000) +
+  labs(title="Frequency Plot of HighProfit")
+
+mBHP_D<-movieB %>%
+  ggplot(aes(Profitability, colour = HighProfit)) +
+  geom_bar() +
+  geom_density(aes(y = ..count.., group=HighProfit),color="black") +
+  xlim(0,2000) +
+  labs(title="Bar Chart of HighProfit with Density Analysis")
+
+grid.arrange(raw_A,rawB_Prof,mBHP_F, mBHP_D)  
+grid.arrange(raw_A,rawB_Prof,mBHP_F, mBHP_D, ncol=1)  
+
+#aes(group=HighProfit),method="lm",color="black", size=0.3
+```
+As you can see in the histogram, `Bar Chart of Profitibility`, `Profitability` accumulates mostly in the range of `~0 to ~2000` and has outliers in the range of `~2000 to 6500`. Due to this, the outliers will be omitted for the EDA and in the `Bar Chart of Profitibility`, so it can be easier to analyze the difference between high-profited movies and low-profited movies.
+
+The `Frequency Plot of HighProfit` and the `Bar Chart of HighProfit with Density Analysis` shows that low-profited movies occur more frequently compared to high-profited movies. The reason might be that a movie's success is dependent on the movie's advertisement, availability globally, and its name/franchise recognition.
+
+For instance, the movie, **Shrek the Third** is an extremely profitable movie of 499.35 but it is a sequel of the other Shrek film and is based on a very popular icon, Shrek, which could contribute a film's `Profitability`.
+
+
+
+## `AudienceScore` Column
+
+```{r}
+summary(movie$AudienceScore)
+```
+The variable, `AudienceScore`, in the dataset is a collection of the Rotten Tomatoes ratings from the audience. The variable `HighAud` is used to determine if the movie made a good impression on the Rotten Tomatoes audience. The variable, `AudienceScore`, will be used in this project to see what factors affect `AudienceScore` ratings of a movie and how highly-rated movies based on audience reviews differ from lowly-rated films.
+The variable, `HighAud`, will be mutated from the variable, `AudienceScore`, in order to differentiate between highly-rated by-audience movies  and low-rated movies. Based on the summarization shown above, the project will define the variable, `HighAud`, to determine a movie is highly-rated by critics if `AudienceScore` has a value of 73 or more since the `third-quarter` is 73. 
+```{r}
+raw_B<-ggplot(data=movie) +
+  geom_histogram(aes(x=AudienceScore)) +
+  labs(title="Bar Chart of HighAud ")
+```
+
+
+```{r}
+movieB<-movieB %>%
+  mutate(HighAud=ifelse(movie$AudienceScore >= 73, "Yes", "No")) 
+
+Freq_mB<-movieB %>%
+  ggplot(aes(AudienceScore, colour = HighAud)) +
+  geom_freqpoly() +
+  xlim(0,100) + 
+  labs(title="Frequency Plot of HighAud with Density Analysis")
+
+Bar_mB<-
+  movieB %>%
+  ggplot(aes(AudienceScore, colour = HighAud)) +
+  geom_bar() +
+ geom_density(aes(y = ..count.., group=HighAud),color="black") +
+  xlim(0,100)+
+  labs(title="Bar Chart of HighAud with Density Analysis")
+  
+grid.arrange(raw_B,Freq_mB, Bar_mB, nrow = 2)  
+grid.arrange(raw_B,Freq_mB, Bar_mB)  
+
+```
+
+As you can see in the histogram, `Bar Chart of HighAud`, `AudienceScore` has a range of `0 to 100` with `100` as a perfect score and `0` as the worst score. There is no significant difference between the frequencies of the highly-rated and lowly-rated movies, as you can see in the `Bar Chart of HighAud`. 
+Based on the `Frequency Chart of HighAud with Density Analysis`, there is a ~5-count average difference between the highly-scored and lowly-scored movies.The `Frequency Plot of HighAud` and the `Bar Chart of HighAud with Density Analysis` shows that lowly-rated movies occur more frequently compared to highly-rated movies.
+
+
+# Methods
+
+## `Profitability` vs. `AudienceScore` Grouped by `HighProfit` 
+The purpose of this section is to see the relationship between `Profitability` and `AudienceScore` by clustering the points with `HighProfit`.
+
+
+```{r}
+movieB
+
+movieBclusHighProf<-movieB %>%
+ggplot(aes(x = AudienceScore, y = Profitability, color = as.factor(HighProfit))) + 
+  geom_point() +
+  geom_smooth(aes(group=HighProfit),method="lm",color="black", size=0.3)+
+  labs(title = "ScatterPlot of AudienceScore vs Profitability with Linear Method")
+
+movieBclusHighProf_2000<-movieB %>%
+ggplot(aes(x = AudienceScore, y = Profitability, color = as.factor(HighProfit))) + 
+  geom_point() +
+  geom_smooth(aes(group=HighProfit),method="lm",color="black", size=0.3)+
+  ylim(0,2000)+
+  labs(title = "ScatterPlot of AudienceScore vs Profitability with Linear Method without Outliers")
+grid.arrange(movieBclusHighProf,movieBclusHighProf_2000, nrow = 1)
+grid.arrange(movieBclusHighProf,movieBclusHighProf_2000)
+```
+
+
+The `ggplots` shown above shows the relationship between `AudienceScore` and `Profitability` that is clustered with `HighProfit`. 
+
+Based on the `ScatterPlot of AudienceScore vs Profitability with Linear Method` graph, low-profit movies leads to a slight positive correlation for `AudienceScore` and `Profitability`, but high-profit movies has a negative correlation. In other words, as low-profit movies' `AudienceScore` increases,it leads to a slight increase in profits. For high-profit movies, as `AudienceScore` increases, it leads to a decrease in profits. 
+
+Based on the `ScatterPlot of AudienceScore vs Profitability with Linear Method without Outliers` graph, both low-profit and high-profit movies has a positive correlation for `AudienceScore` and `Profitability`. In other words, movies, regardless if their high-profit or low-profit, will increase in `Profitability` as `AudienceScore` increases.
+
+These scatterplots show that as more highly profitable outliers appear, the slopes of both lowly profitable and highly profitable movies decrease, suggesting a negative correlation between highly profitable outliers and the slopes of both groups.
+
+## `Profitability` and `AudienceScore` K-Means Clustering 
+### Elbow Method and Silhouette method to determinine optimal clusters
+```{r}
+myvars<-c("RottenTomatoes", "AudienceScore", "TheatersOpenWeek", "DomesticGross", "ForeignGross","WorldGross","Budget","Profitability","OpeningWeekend","BOAvgOpenWeekend")
+```
+The code above is used to remove the categorical variables, `Movie` and `LeadStudio`, so that the data can be used for k-means clustering, since clustering does not respond well to data with string-based columns.
+
+```{r}
+movieB<-movieB[myvars] %>%
+  na.omit()
+
+movieB<-data.frame(movieB)
+
+```
+
+```{r}
+set.seed(123)
+# Elbow method
+ELBmovie<-fviz_nbclust(movieB, kmeans, method = "wss") +
+    geom_vline(xintercept = 4, linetype = 2)+
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+SLmovie<-fviz_nbclust(movieB, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+set.seed(123)
+grid.arrange(ELBmovie, SLmovie, nrow = 2)
+
+```
+
+In order to find the most optimal number clusters to use for k-means clustering. The `elbow method` and the `silhouette method` will be used to determine the best number of clusters.
+The `elbow method` computes k-means clustering for every different value of k. Then for every k value has the total within-cluster sum of squares (wss) calculated. Based on this, the best cluster for the `elbow method` would be 4.
+The  `silhouette method` measures the quality of a cluster which determines how well each object lies within their cluster. Based on this and the `Optimal number of clusters Silhouette Method`, the most optimal number of clusters is 2. 
+The project will choose the k values 2, 3, and 4 for K-means clustering since they are the most optimal k-values based on the `elbow method` and the `silhouette method`.
+
+### K-Means Clustering of k=2,3,4
+```{r}
+myvars<-c("RottenTomatoes", "AudienceScore", "TheatersOpenWeek", "DomesticGross", "ForeignGross","WorldGross","Budget","Profitability","OpeningWeekend","BOAvgOpenWeekend")
+```
+
+The code above is used to remove the categorical variables, `Movie` and `LeadStudio`, so the dataset can be used for kmeans, since kmeans does not respond to datasets with columns being a collection of string values.
+
+```{r}
+movieB<-movieB[myvars] %>%
+  na.omit()
+
+movieB<-data.frame(movieB)
+
+```
+
+
+```{r}
+movieB_clust<-movieB[,5]
+mcls2<-kmeans(x=movieB_clust[!is.na(movieB_clust)], centers=2)
+mcls3<-kmeans(x=movieB_clust[!is.na(movieB_clust)], centers=3)
+mcls4<-kmeans(x=movieB_clust[!is.na(movieB_clust)], centers=4)
+```
+
+
+```{r}
+mcls2
+```
+`mcls2` is a k-means clustering with 2 clusters or centers of size 58 and 533. The cluster mean of 1 is 471.00779 and the cluster mean of 2 is 57.84004. The sum of squares in cluster 1 is 3761951 and in cluster 2 is 1794220.
+
+```{r}
+mcls3
+```
+`mcls3` is a k-means clustering with 3 clusters or centers of size 84, 13, and 494. The cluster mean of 1 is 298.49229, the cluster mean of 2 is 795.62923, and the cluster mean 3 of 46.01348. The sum of squares in cluster 1 is 864482.1, cluster 2 is 1754172.2, and cluster 3 is 828400.7.
+
+```{r}
+mcls4
+```
+
+`mcls4` is a k-means clustering with 4 clusters or centers of size 115, 420, 45, and 11. The cluster mean of 1 is 153.82391,  cluster mean of 2 is 32.55724, cluster mean of 3 is 391.06960, and cluster mean of 4 is 835.02455. The sums of squares in cluster 1, 2, 3, and 4 are 268727.5,  285472.8,  292001.1, and 1641993.1.
+
+```{r}
+mB2<-fviz_cluster(mcls2, geom = "point", data=movieB)+ggtitle("Hollywood Movie Cluster Plot with k=2")
+mB3<-fviz_cluster(mcls3, geom = "point", data=movieB)+ggtitle("Hollywood Movie Cluster Plot with k=3")
+mB4<-fviz_cluster(mcls4, geom = "point", data=movieB)+ggtitle("Hollywood Movie Cluster Plot with k=4")
+
+grid.arrange(mB2, mB3, mB4, nrow = 2)
+grid.arrange(mB2, mB3, mB4, ncol = 1)
+
+```
+
+The `Hollywood Movie Cluster Plot with k=2` shows 2 clusters. 
+Cluster 1 takes up the `Dim1 (53.1%)` range between -17 to -2 and `Dim2 (17.2%)`  range between -2.5 to 6.  Cluster 2 takes up the `Dim2 (53.1%)` range between -17 to -2 and `Dim1 (17.2%)`  range between -2.5 to 6.
+
+The `Hollywood Movie Cluster Plot with k=3` shows 3 clusters. 
+Cluster 1 has `Dim1 (53.1%)` range between -10 to 0 and `Dim2 (17.2%)`  range between 0 to 5. The Cluster 2 has `Dim1 (53.1%)` range between -0.5 to 0.5 and `Dim2 (17.2%)`  range between -2.5 to 3.75. Cluster 3 has a ` Dim1 (53.1%)` range between -0.5 to 0.5 and `Dim2 (17.2%)` range between -2.5 to 5.
+
+The `Hollywood Movie Cluster Plot with k=4` shows 4 clusters. 
+Cluster 1 has `Dim1 (53.1%)` range between -6 to 0 and `Dim2 (17.2%)`  range between -2.5 to 5. The Cluster 2 has `Dim1 (53.1%)` range between -2.5 to 5 and `Dim2 (17.2%)`  range between -2.5 to 4.75. Cluster 3 has a ` Dim1 (53.1%)` range between -10 to 7.5 and `Dim2 (17.2%)` range between -2.5 to 5. Cluster 4 has a ` Dim1 (53.1%)` range between -6 to 0 and `Dim2 (17.2%)` range between -2.5 to 5.
+
+As you can see, the clusters in all k-means clustering are overlapped with the other clusters within their graphs. Based on this, `Hollywood Movie Cluster Plot with k=3` and `Hollywood Movie Cluster Plot with k=2` have better clusters than `Hollywood Movie Cluster Plot with k=4` since there is too much overlap to analyze. `Hollywood Movie Cluster Plot with k=3` would be the most optimal since it has more than 2 variables and has less overlap than `Hollywood Movie Cluster Plot with k=4`.
+
+
+
+
+## `Profitability` Column
+### Decision Tree `Profitability`
+#### With Categorical Variables
+
+This section and the next section are meant to be used as a comparison between the decision trees of `Profitability` that have categorical variables or not.  
+
+```{r}
+movie<- movie %>%
+  na.omit()
+movie
+```
+
+The `movie`(`HollywoodMovies` dataset) dataset originally had many NA values in all columns, which needed to be removed. The code above is used to remove NA values with `na.omit()` since it needs to be removed to train the code and create decision and random trees.
+
+
+```{r}
+HighProfit <- ifelse(movie$Profitability >= 400, "Yes", "No")
+
+movie<-data.frame(movie, HighProfit)
+
+movie$Profitability<-as.factor(movie$Profitability)
+```
+
+The code above creates a new variable called `HighProfit` that will be used to determine if a movie has a profit of more than 400 in the `Profitability` column. The `HighProfit` column will be determining this by labeling movies with string values `Yes` or  `No` depending on the movie's profitability.
+
+```{r}
+#remove.packages("Rcpp")
+#install.packages('Rcpp')
+library(Rcpp)
+tree.movieProf<-train(HighProfit ~ . -Profitability, data=movie, method="rpart")
+tree.movieProf
+```
+The variable, `HighProfit` was trained with the dataset `movie` (the stored`Hollywood` dataset) and without the variable, `Profitability`. As you can see that there are relatively low `Kappa` scores that suggest that the two raters do have a weak agreement with the two raters when using nominal scores. 
+The most optimal model has an `Accuracy` of 0.8425314, `cp` of 0.08163265, and a `Kappa` of 0.5445023, which is not great because the `Accuracy` was average and the `Kappa` was low. This training method used 25 Bootstrapped reps for resampling.  
+
+```{r}
+rpart.plot(tree.movieProf$finalModel)
+```
+
+For this section, the categorical variable was not removed so that the decision trees with categorical variables and without categorical variables can be compared.
+
+> If `OpenProfit < 63`: the model predicts low profitability (< 400) with 11% confidence in "No". 76% of the movies fall in this group.
+
+> If `OpenProfit ≥ 63` and `ForeignGross < 25`: the model still predicts low profitability with 29% confidence in "No". 9% of the movies fall in this group.
+
+> If `OpenProfit ≥ 63` and `ForeignGross ≥ 25`: the model predicts high profitability (≥ 400) with 90% confidence in "Yes". 15% fall in this group.
+
+This decision tree is somewhat poor since the depth of the decision tree is too small and too few variables to consider. That is why the next section is the same as this section but the decision tree does not include the categorical variables.
+
+These rules can be shown at the bottom.
+
+```{r}
+rpart.rules(tree.movieProf$finalModel)
+```
+
+
+
+#### Removed Categorical Variables
+This section and the previous section are meant to be used as a comparison between the decision trees of `Profitability` that have categorical variables or not. This section removes the categorical variables, `Movie` and `LeadStudio`.
+
+```{r}
+
+movie <- read_csv("https://raw.githubusercontent.com/reisanar/datasets/master/HollywoodMovies.csv")
+myvars<-c("RottenTomatoes", "AudienceScore", "TheatersOpenWeek", "DomesticGross", "ForeignGross","WorldGross","Budget","Profitability","OpeningWeekend","BOAvgOpenWeekend")
+```
+
+```{r}
+movie<-movie[myvars] %>%
+  na.omit()
+
+movie<-data.frame(movie)
+
+movie<-movie %>%
+  mutate(HighProfit=ifelse(movie$Profitability >= 400, "Yes", "No")) %>%
+  dplyr::select(-Profitability)
+
+movie<-movie %>%
+  mutate(HighProfit=as.factor(HighProfit))
+```
+
+The `movie` dataset originally had many NA values in all columns, which need to be removed. The code above is used to remove NA values with `na.omit()` since it needs to be removed to train the code and create decision and random trees. The code above also creates a new variable called `HighProfit` that will be used to determine if a movie has a profit of more than 400 in the `Profitability` column. The `HighProfit` column will be determining this by labeling movies with string values of `Yes` or  `No` depending on the movie's profitability.
+
+
+```{r}
+inTrain<-createDataPartition(y=movie$HighProfit, p=0.75, list=FALSE)
+train <- movie[inTrain,]
+test <- movie[-inTrain,]
+```
+
+```{r}
+set.seed(217)
+cvcontrol <- trainControl(method = "repeatedcv", number = 10, allowParallel = TRUE)
+
+```
+The two chunks above create training and testing sets for the `HighProfit` variable in the dataset, `movie`. The split is needed to train the data in order to better create decision trees. A `trainControl` variable was made to be used on the `train` variable shown at the bottom. The variable, `cvcontril` is made with the `trainControl()` method that uses the method `repeatedcv`, which is `cv` that repeats, 10-folds classification, and allows the code to run parallel.
+
+```{r}
+dt_movie<- train(HighProfit ~ . , data = train, method = "rpart", 
+                     trControl = cvcontrol, tuneLength = 10)
+dt_movie
+
+```
+The `train()` method-used model uses a 10-fold classification done at 1 time and includes 2 classes that define if the movie is of `HighProfit` or not.
+The most optimal model, according to the `CART` table shown above, has a `cp` value of 0.005882353, `accuracy` of 0.8611623, and a `Kappa` of 0.6275904, which is average and not the absolute best in determining the best decision process to get the most `profitable` movie.
+
+```{r}
+plot(dt_movie)
+```
+
+The plot above shows the relationship between the `complexity parameter` and the `Accuracy (Repeated Cross-Validation)`. The graph shows it has a negative relationship. This suggests that as the `complexity parameter` increases, the `accuracy` decreases.
+
+```{r}
+rpart.plot(dt_movie$finalModel)
+
+```
+
+The decision tree shown above does not include categorical variables that would hinder the creation of a precise decision tree. This is a much more complex decision tree compared to the previous section since it has more depth than the decision tree with categorical variables.
+
+The best chance to have movies with Profitability of more than 400 million dollars with 100% confidence occurs in 3 scenarios:
+> If `DomesticGross ≥  45 & DomesticGross < 134`, `Budget ≥ 12 & Budget < 39`, and `WorldGross < 127`: the model predicts high profitability (≥ 400) with 100% confidence in "Yes". 5% of the movies fall in this group.
+
+> If `DomesticGross ≥ 134`, `Budget ≥ 163`, and `WorldGross ≥ 984`: the model predicts high profitability (≥ 400) with 100% confidence in "Yes". 2% of the movies fall in this group.
+
+> If `DomesticGross ≥ 134`, `Budget < 163`, and `WorldGross ≥ 453`: the model predicts high profitability (≥ 400) with 100% confidence in "Yes". 5% of the movies fall in this group.
+
+However, the `Yes` leaf nodes have high error rates, so this decision tree is not an ideal model to predict a movie's chance of being highly profitable.  
+
+
+```{r}
+tree_classTrain<-predict(dt_movie, type="raw")
+head(tree_classTrain)
+```
+
+```{r}
+confusionMatrix(train$HighProfit, tree_classTrain)
+```
+
+The accuracy of the `confusion matrix and Statistics` is relatively great since it is 0.9458  correct.  The `95% confident interval` falls in this range, (0.925, 0.9622). The `kappa` is relatively good and has a value of 0.8592, which means that there is somewhat near-perfect agreement. This confusion matrix also claims that the p-value is less than 2e-16  which shows that the model does go against the null hypothesis. 
+
+
+```{r}
+tree_classTest<-predict(dt_movie, newdata=test, type="prob")
+tree_classTest
+```
+
+```{r}
+ROC_curve_dt<-roc(test$HighProfit, tree_classTest[,"Yes"])
+plot(ROC_curve_dt)
+auc(ROC_curve_dt)
+```
+The graph shown above shows that the Area under the curve takes up 0.8392 which means that the performance of the model poorly distinguishes between the positive and negative classes. This graph will be saved in order to compare how well all the decision tree techniques interpreted the test data. 
+
+
+### Bagging
+
+```{r}
+bag_movie<-train(HighProfit~.,data=train, method="treebag", trControl=cvcontrol, importance=TRUE)
+
+bag_movie
+```
+The `bagged CART` model has two predictors that determine if the movie has a high profit of more than 400 million dollars.
+The `bagging` will be used to improve the accuracy of the algorithms used in the machine learning algorithm. The `bag_movie` contains 2 classes called `Yes` and `No` that indicate if the movie agrees with `HighProfit`. It also has only one optimal model with an `accuracy` of 0.9232719 and a `kappa` value of 0.7976616.
+
+```{r}
+plot(varImp(bag_movie))
+```
+
+The `varImp `plot shown above shows that `WorldGross`, `DomesticGross`, `Budget`, and `ForeignGross` are the most important to the bagged `HighProfit` variable with importance values of 100, 90, 70, and 60. This means that the project should consider these variables as significant to the training and testing of the variable `HighProfit`.
+
+```{r}
+bagg_pred<-predict(bag_movie, newdata = test, type="raw")
+head(bagg_pred)
+```
+
+```{r}
+confusionMatrix(test$HighProfit, bagg_pred)
+```
+The `accuracy` of the `confusion matrix and Statistics` is relatively good since it is 0.899.  The `95% confident interval` has a range of (0.8498, 0.9364). The `kappa` is relatively average with a value of 0.7297, which is not very impressive. This confusion matrix also claims that the p-value is 2.25e-06 which is very low and that this model does go against the null hypothesis. The `confusion matrix and Statistics` does well because of the decent `Accuracy` and moderate `Kappa`.
+
+
+```{r}
+bagg_probs <- predict(bag_movie, newdata = test, type = "prob")
+head(bagg_probs)
+```
+
+```{r}
+ROC_curve_bagg <- roc(test$HighProfit, bagg_probs[ , "Yes"])
+plot(ROC_curve_bagg)
+```
+
+```{r}
+auc(ROC_curve_bagg)
+```
+
+The graph shown above shows that the Area under the curve takes up 95.71% which means that the performance of the model can easily distinguish between the positive and negative classes. This graph will be saved in order to compare how well all the decision tree techniques interpreted the test data. 
+
+### Random Forest 
+```{r}
+rf_HighProfit<-train(HighProfit~., data=train, method="rf", trControl=cvcontrol, importance =TRUE)
+rf_HighProfit
+```
+The training method for the `random forest` has 2 classes that determine if `HighProfit` is high by 400 million dollars or more. This training method was also done in a 10-fold classification repeated 1 time.
+The `random forest` method will be used to improve the accuracy of the algorithms used in the machine learning algorithm. It contains 2 classes called `Yes` and `No` that indicate if the movie agrees with `HighProfit`. It also has an optimal model with an `accuracy` of 0.9346646,  a `kappa` value of 0.8298408, and a `mtry` of 9. This `random forest` is relatively above average since the `Accuracy` is high and the `Kappa` is average.  
+
+```{r}
+rf_pred<-predict(rf_HighProfit, newdata=test, type="raw")
+confusionMatrix(test$HighProfit, rf_pred)
+```
+The `accuracy` of the `confusion matrix and Statistics` is relatively great since it is 91.83%.  The `95% confident interval` has a range of (0.8724, 0.9517). The `kappa` is  very mediocre with a value of 0.7786, which means that there is some agreement. This `confusion matrix` also claims that the `p-value` is 1.592e-07  which is very low and that this model does greatly go against the null hypothesis. The `confusion matrix and Statistics` is relatively great due to the high `Accuracy` and the low `P-value`. 
+
+```{r}
+rf_probs<-predict(rf_HighProfit, newdata = test, type = "prob")
+head(rf_probs)
+```
+
+```{r}
+ROC_curve_rf<-roc(test$HighProfit, rf_probs[,"Yes"])
+plot(ROC_curve_rf)
+auc(ROC_curve_rf)
+```
+The graph shown above shows that the Area under the curve takes up 96.85% which means that the performance of the model can easily distinguish between the positive and negative classes which are almost perfect. This graph will be saved in order to compare how well all the decision tree techniques interpreted the test data. The AUC of `ROC_curve_rf` is relatively higher compared to the past 2 methods which means that this is more useful than the other two methods since its overall performance would be better.
+
+
+### Boosting
+```{r}
+gbm_movie<-train(HighProfit~., data=train,
+                 method="gbm", verbose=F, trControl=cvcontrol)
+gbm_movie
+```
+The Stochastic Gradient Boosting with 10-fold cross-validation shows the most optimal model has 150 trees, an `interactive depth` of 3, `shrinkage` of 0.1, `Accuracy` of 0.9410394, and `Kappa` of 0.8487608, which can be said as a relatively great model because of its `Kappa` and `Accuracy`. This is done to the variable, `HighProfit`, since the project needs to determine what makes a movie highly-profitable. 
+
+```{r}
+gbm_preds <- predict(gbm_movie, newdata = test, type = "raw")
+# get confusion matrix
+confusionMatrix(test$HighProfit, gbm_preds)
+```
+The `confusionMatrix and Statistics` for this section shows that the `accuracy` of 0.9231, the  `95% confidence interval` of (0.8781, 0.9554), `Kappa` value of 0.7953, and the p-value of 3.816e-09, which means that the model does well and it goes against the null hypothesis.
+
+```{r}
+gbm_probs<-predict(gbm_movie, newdata = test, type = "prob")
+ROC_curve_gbm<-roc(test$HighProfit, gbm_probs[,"Yes"])
+plot(ROC_curve_gbm)
+auc(ROC_curve_gbm)
+```
+
+The graph shown above shows that the Area under the curve takes up 97.83%, which means that the performance of the model can easily distinguish between the positive and negative classes and has a high performance. This graph will be saved in order to compare how well all the decision tree techniques interpreted the test data. The `AUC-ROC curve` is relatively higher compared to the past 3 methods which means that this is more useful than the other two methods since its overall performance is better.
+
+
+### Model Comparison High-`Profitability`
+```{r}
+# using the `add = TRUE` option for each plot after the first one:
+plot(ROC_curve_dt, col = "black", legacy.axes = T, )  # black
+plot(ROC_curve_bagg, add = TRUE, col = "red") # color red for bagging
+plot(ROC_curve_rf, add = TRUE, col = "green") # color green is for random forest
+plot(ROC_curve_gbm,add = TRUE, col = "orange") # color orange is for boosting
+
+auc(ROC_curve_dt)
+auc(ROC_curve_bagg)
+auc(ROC_curve_rf)
+auc(ROC_curve_gbm)
+```
+
+The graphs shown above show the `AUC-ROC` scores of the `decision tree`, `bagging`, `boosting`, and `rain forest` models. 
+The best method for the variable, `HighProfit`, is `boosting` which is shown with the orange curve, since it has the highest AUC-ROC by a small margin, which we will consider highly. The worst method for the variable, `HighProfit` is `decision tree` since it has the lowest AUC-ROC by a large margin, which we will not consider. 
+
+
+## `AudienceScore` Column
+### Decision Tree `AudienceScore`
+#### With Categorical Variables
+This section and the next section are meant to be used as a comparison between the decision trees of `AudienceScore` that have categorical variables or not. 
+
+```{r}
+movie <- read_csv("https://raw.githubusercontent.com/reisanar/datasets/master/HollywoodMovies.csv")
+
+movie<- movie %>%
+  na.omit()
+movie
+```
+The `movie`(`HollywoodMovies` dataset) dataset originally had many NA values in all columns, which needed to be removed. The code above is used to remove NA values with `na.omit()` since it needs to be removed in order to train the code and create decision and random trees.
+
+```{r}
+HighAud <- ifelse(movie$AudienceScore >= 73, "Yes", "No")
+
+movie<-data.frame(movie, HighAud)
+
+movie$AudienceScore<-as.factor(movie$AudienceScore)
+```
+
+The code above creates a new variable called `HighAud` that will be used to determine if a movie has an audience rating of at least 73 in the `AudienceScore` column. The `HighAud` column will be determining this by labeling movies with string values `Yes` or  `No` depending on the movie's audience score.
+
+```{r}
+tree.movieAud<-train(HighAud ~ . -AudienceScore, data=movie, method="rpart")
+tree.movieAud
+```
+The `CART training method` model uses 25 bootstraped reps for resampling. The variable, `HighAud` was trained with the dataset `movie` (the stored`Hollywood` dataset) and without the variable, `AudienceScore`. As you can see that there are relatively low `Kappa` scores that suggest that the two raters do have a weak agreement with the two raters when using nominal scores. 
+The most optimal model has an `Accuracy` of 0.8360114, `cp` of 0.03571429, and a `Kappa` of 0.5552819, which is not a very good `CART` model to use.
+
+
+
+```{r}
+
+rpart.plot(tree.movieAud$finalModel)
+```
+
+For this section, the categorical variable was not removed so the decision trees with categorical variables and without categorical variables can be compared with this section and the next section.
+
+> If `RottenTomatoes < 74`: the model predicts low `AudienceScore` (< 73) with 12% confidence in "No". 77% of the movies fall in this group.
+
+> If `RottenTomatoes ≥ 74 and RottenTomatoes < 89` and `Profitability < 256`: the model predicts low `AudienceScore` (< 73) with 34% confidence in "No". 6% of the movies fall in this group.
+
+> If `RottenTomatoes ≥ 89` and `Profitability < 256`: the model predicts high `AudienceScore` (≥  73) with 89% confidence in "Yes". 2% of the movies fall in this group.
+
+> If `RottenTomatoes ≥ 74` and `Profitability ≥ 256`: the model predicts high `AudienceScore` (≥  73) with 87% confidence in "Yes". 15% of the movies fall in this group.
+
+These rules are shown at the bottom.
+
+```{r}
+rpart.rules(tree.movieAud$finalModel)
+```
+
+
+
+#### Removed Categorical Variables
+
+This section and the previous section are meant to be used as a comparison between the decision trees of `AudienceScore` that have categorical variables or not. This section removes the categorical variables, `Movie` and `LeadStudio`.
+
+```{r}
+movie <- read_csv("https://raw.githubusercontent.com/reisanar/datasets/master/HollywoodMovies.csv")
+myvars<-c("RottenTomatoes", "AudienceScore", "TheatersOpenWeek", "DomesticGross", "ForeignGross","WorldGross","Budget","Profitability","OpeningWeekend","BOAvgOpenWeekend")
+```
+
+
+```{r}
+movie<-movie[myvars] %>%
+  na.omit()
+
+movie<-data.frame(movie)
+
+movie<-movie %>%
+  mutate(HighAud=ifelse(movie$AudienceScore >= 73, "Yes", "No")) %>%
+  dplyr::select(-AudienceScore)
+
+movie<-movie %>%
+  mutate(HighAud=as.factor(HighAud))
+```
+
+The `movie` dataset originally had many NA values in all columns, which need to be removed. The code above is used to remove NA values with `na.omit()` since it needs to be removed to train the code and create a decision and random trees. The code above also creates a new variable called `HighAud` that will be used to determine if a movie has an audience score of more than 73 in the `AudienceScore` column. The `HighAud` column will be determining this by labeling movies with string values of `Yes` or  `No` depending on the movie's audience reviews.
+
+```{r}
+inTrain<-createDataPartition(y=movie$HighAud, p=0.75, list=FALSE)
+train <- movie[inTrain,]
+test <- movie[-inTrain,]
+```
+
+```{r}
+set.seed(217)
+cvcontrol <- trainControl(method = "repeatedcv", number = 10, allowParallel = TRUE)
+
+```
+The two chunks above create the training and testing sets for the `HighAud` variable in the dateset, `movie`. The split is needed to train the data to better create decision trees. A `trainControl` variable was made to be used on the `train` variable shown at the bottom.
+
+```{r}
+dt_movie<- train(HighAud ~ . , data = train, method = "rpart", 
+                     trControl = cvcontrol, tuneLength = 10)
+dt_movie
+```
+The `CART model` uses the `HighAud` variable and is resampled with 10-fold classification and cross-validation at one time. 
+The most optimal model, according to the `CART` table shown above, has a `cp` value of 0, `accuracy` of 0.8482847, and a `Kappa` of 0.6227430, which is not great since the `Accuracy` is average and the `Kappa` is really low.
+
+```{r}
+plot(dt_movie)
+```
+
+The plot above shows the relationship between the `complexity parameter` and the `Accuracy (Repeated Cross-Validation)`.The graph has a consistent decline in accuracy as the complexity parameter increases. 
+
+
+```{r}
+rpart.plot(dt_movie$finalModel)
+```
+The decision tree shown above does not include categorical variables that would hinder the creation of a precise decision tree. This is a much superior decision tree compared to the previous section since it has more depth than the decision tree with categorical variables.
+
+The best chance to find movies with a high `AudienceScore` of more than 73 with 100% confidence occur in 2 scenarios:
+
+> If `RottenTomatoes ≥ 65 and RottenTomatoes < 78`, `DomesticGross ≥ 143`, and `Budget < 69`: the model predicts high `AudienceScore` (≥ 73) with 100% confidence in “Yes”. 2% of the movies fall in this group.
+
+> If `RottenTomatoes ≥ 90` and `Profitability < 226`: the model predicts high `AudienceScore` (≥ 73) with 100% confidence in “Yes”. 1% of the movies fall in this group.
+
+
+```{r}
+tree_classTrain<-predict(dt_movie, type="raw")
+head(tree_classTrain)
+```
+
+```{r}
+confusionMatrix(train$HighAud, tree_classTrain)
+```
+The `confusionMatrix and Statistics` for this section shows that the `accuracy` of 0.9043, the  `95% confidence interval` of (0.8785, 0.9262), `Kappa` value of 0.7589, and the `p-value` of less than 2e-16, which means that it goes against the null hypothesis. This model is average since its `Kappa` value indicates the overall agreement level is mediocre.  
+
+
+```{r}
+tree_classTest<-predict(dt_movie, newdata=test, type="prob")
+tree_classTest
+```
+
+```{r}
+
+ROC_curve_dt<-roc(test$HighAud, tree_classTest[,"Yes"])
+plot(ROC_curve_dt)
+auc(ROC_curve_dt)
+```
+
+The graph shown above shows that the Area under the curve takes up 87.45% which means that the performance of the model has an average time distinguishing between the positive and negative classes. Overall, this model would be an okay graph to use. This graph will be saved in order to compare how well all the models interpret the test data. 
+
+### Bagging
+
+```{r}
+bag_movie<-train(HighAud~.,data=train, method="treebag", trControl=cvcontrol, importance=TRUE)
+
+bag_movie
+```
+The `bagging` will be used to improve the accuracy in the algorithms used of the machine learning algorithm. The `bag_movie` contains 2 classes called `Yes` and `No` that indicate if the movie agrees with `HighAud`. It also has an optimal model with an `accuracy` of 0.8373016 and a `kappa` value of 0.5870431, which is inadequate since the `Accuracy` and the `Kappa` are so low, which says that the overall agreement level is poor.
+
+```{r}
+plot(varImp(bag_movie))
+```
+
+The `varImp `plot shown above shows that `RottenTomatoes`, `DomesticGross`, and `WorldGross` are the most important to the bagged `HighAud` variable with importance values of 100, 75, and 55. This means that the project should consider these variables as important to the training and testing of the variable `HighAud`.
+
+```{r}
+bagg_pred<-predict(bag_movie, newdata = test, type="raw")
+head(bagg_pred)
+```
+
+```{r}
+confusionMatrix(test$HighAud, bagg_pred)
+```
+The `accuracy` of the `confusion matrix and Statistics` is relatively average since it is 0.8365. The `95% confidence interval` is (0.7791, 0.8841). The `kappa` is relatively low and has a value of 0.5761, which means that there is a poor overall agreement level. This confusion matrix also claims that the `p-value` is 0.007172, which is very low and shows it greatly goes against the null hypothesis. However, this model is not a good choice since it has a mediocre `Accuracy` and an extremely low `Kappa`.
+
+
+```{r}
+bagg_probs <- predict(bag_movie, newdata = test, type = "prob")
+head(bagg_probs)
+```
+
+```{r}
+ROC_curve_bagg <- roc(test$HighAud, bagg_probs[ , "Yes"])
+plot(ROC_curve_bagg)
+```
+
+```{r}
+auc(ROC_curve_bagg)
+```
+The graph shown above shows that the Area under the curve takes up 88.32% which means that the performance of the model can distinguish between the positive and negative classes. This graph will be saved in order to compare how well all the models interpret the test data. 
+
+### Random Forest 
+```{r}
+rf_HighAud<-train(HighAud~., data=train, method="rf", trControl=cvcontrol, importance =TRUE)
+rf_HighAud
+```
+The `random forest` method will be used to improve the accuracy of the algorithms used in the machine learning algorithm. It contains 2 classes called `Yes` and `No` that indicate if the movie agrees with `HighAud`, and used a resampling of 10-fold classification that is processed once. 
+It also has an optimal model with an `accuracy` of 0.8612903, `kappa` value of 0.6411876, and a `mtry` of 5. This `Random Forest` is relatively average due to the mediocre `Accuracy` and extremely low `Kappa` value.
+
+
+```{r}
+rf_pred<-predict(rf_HighAud, newdata=test, type="raw")
+confusionMatrix(test$HighAud, rf_pred)
+```
+The `accuracy` of the `confusion matrix and Statistics` is relatively average since it is 0.8654.  The `95% confidence interval` is (0.8114, 0.9086). The `kappa` is relatively average and has a value of 0.6583, which means that there is a poor average overall agreement level. This confusion matrix also claims that the p-value is 1.691e-05, which is very low and it does go against the null hypothesis. However, this model is not a good choice since it has low `Accuracy` and low `Kappa`.
+
+
+
+```{r}
+rf_probs<-predict(rf_HighAud, newdata = test, type = "prob")
+head(rf_probs)
+```
+
+```{r}
+ROC_curve_rf<-roc(test$HighAud, rf_probs[,"Yes"])
+plot(ROC_curve_rf)
+```
+
+```{r}
+auc(ROC_curve_rf)
+```
+
+The graph shown above shows that the Area under the curve takes up 90.46% which means that the performance of the model can easily distinguish between the positive and negative classes. This graph will be saved in order to compare how well all the models interpret the test data.
+
+### Boosting
+```{r}
+gbm_movie<-train(HighAud~., data=train,
+                 method="gbm", verbose=F, trControl=cvcontrol)
+gbm_movie
+```
+The Stochastic Gradient Boosting with resampling of 10-fold cross-validation shows the most optimal model has 50 trees, an `interactive depth` of 3, `shrinkage` of 0.1, `Accuracy` of 0.8805428, and `Kappa` of 0.6884288, which can be said as a relatively average model because of its low `Kappa` despite having a decent `Accuracy`.
+
+
+
+```{r}
+gbm_preds <- predict(gbm_movie, newdata = test, type = "raw")
+# get confusion matrix
+confusionMatrix(test$HighAud, gbm_preds)
+```
+The `confusionMatrix and Statistics` for this section show the `Accuracy` is 0.8317, the `95% confidence interval` has a range of (0.7738, 0.8799), the `Kappa` value of 0.5564, and the p-value of 0.03662, which means that it goes against the null hypothesis.
+
+```{r}
+gbm_probs<-predict(gbm_movie, newdata = test, type = "prob")
+ROC_curve_gbm<-roc(test$HighAud, gbm_probs[,"Yes"])
+plot(ROC_curve_gbm)
+```
+
+```{r}
+
+auc(ROC_curve_gbm)
+```
+
+The graph shown above shows that the Area under the curve takes up 0.906, which means that the performance of the model can easily distinguish between the positive and negative classes. This graph will be saved in order to compare how well all the models interpret the test data. Stochastic Gradient Boosting shows better performance compared to the other models.
+
+### Model Comparison High `AudienceScore`
+```{r}
+# using the `add = TRUE` option for each plot after the first one:
+plot(ROC_curve_dt, col = "black", legacy.axes = T, )  # black
+plot(ROC_curve_bagg, add = TRUE, col = "red") # color red for bagging
+plot(ROC_curve_rf, add = TRUE, col = "green") # color green is for random forest
+plot(ROC_curve_gbm,add = TRUE, col = "orange") # color orange is for boosting
+auc(ROC_curve_dt)
+auc(ROC_curve_bagg)
+auc(ROC_curve_rf)
+auc(ROC_curve_gbm)
+```
+
+The graphs shown above show the `AUC-ROC` of the `decision tree`, `bagging`, `random forest`, and `Boosting`. The best method for the variable, `HighAud`, is `Boosting` which is shown on the orange graph since it has the highest AUC-ROC by a small margin.
+
+
+# Conclusion
+
+One of the biggest global markets in the entertainment industry is the box office industry. According to `IMDbPro`, the industry has a yearly average box office revenue of around 11 to 14 million dollars and a yearly total gross of around 9 to 12 billion dollars. The project wanted to determine what makes a Hollywood movie have a high `Profitability` what makes it have a high `AudienceScore`, and how `Profitability` and `AudienceScore` correlate with each other. This was done with EDA, clustering, decision trees, bagging, boosting, and random forests that will help determine the pattern for high-earning and highly-rated movies.
+
+The `Profitability vs. AudienceScore Grouped by HighProfit`section shows a model of the relationship between `Profitability` and `AudienceScore` that is clustered with the variable, `HighProfit`, which determines if a movie is highly-profitable or not. The `ScatterPlot of AudienceScore vs Profitability with Linear Method` for lowly profited movies has a slightly, positive slope, while highly-profited movies have also a negative slope. The `ScatterPlot of AudienceScore vs Profitability with Linear Method without Outliers` for lowly profited movies have a positive slope, while highly-profited movies have also a positive slope. These scatterplots show that as more highly-profiting outliers appear in the graph, the slope of lowly-profiting movies and the slope of highly-profiting movies decreases, which could mean that highly-profiting outlier has a negative correlation to the slope of lowly-profiting movies and the slope of highly-profiting movies.
+
+The `Profitability and AudienceScore K-Means Clustering` uses the elbow method and K-means clustering for `AudienceScore`. The project chose the k values 2, 3, and 4 for K-means clustering since they are the most optimal k-values based on the elbow method and the silhouette method. The clusters in all k-means clustering are overlapped with the other clusters within their graphs. Based on this, `Hollywood Movie Cluster Plot with k=3` and `Hollywood Movie Cluster Plot with k=2` have better clusters than `Hollywood Movie Cluster Plot with k=4` since there is too much overlap to analyze. `Hollywood Movie Cluster Plot with k=3` would be the most optimal since it has more than 2 variables and has less overlap than `Hollywood Movie Cluster Plot with k=4`.
+
+The model comparison of the `Profitibility`column includes decision trees (with and without categorical variables), bagging, random forest, and boosting. The AUC-ROC curve shows that the best method for the variable, `HighAud`, is Stochastic Gradient Boosting since it has the highest AUC-ROC by a small margin.
+
+The model comparison of the `AudienceScore`column includes decision trees (with and without categorical variables), bagging, random forest, and boosting. The best method for the variable, `HighAud`, is the Stochastic Gradient Boosting since it has the highest AUC-ROC by a small margin.
+
+This project taught me that usually low `Kappa` has an average or low `Accuracy`. It also taught me that the `rpart()` and `rpart.plot()` makes unique decision tree in every re-run, which was difficult for me to deal with because I had to constantly change the text to correlate to the decision trees.
+
+Movie studios would find this information useful since it could help them determine the best kind of movies that will lead to larger profits and more positive feedback on their movies and firms for better publicity and recognition.
+
+
+# Resources
+
+Fonseca, L. (2019, August 15). Clustering analysis in R using K-means. Retrieved April 24, 2021, from https://towardsdatascience.com/clustering-analysis-in-r-using-k-means-73eca4fb7967
+
+Hidayatuloh, A. (n.d.). Visualize Clustering Using ggplot2. Retrieved April 24, 2021, from https://rpubs.com/aephidayatuloh/clustervisual
+
+Michel Kana, P. (2020, February 24). Data clustering tutorial for advanced. Retrieved April 24, 2021, from https://towardsdatascience.com/clustering-for-data-nerds-ebbfb7ed4090
+
+K-means cluster analysis. (n.d.). Retrieved April 24, 2021, from https://afit-r.github.io/kmeans_clustering
+
+Rashmi, Kassambara 06 May 2020 The demo data used in this tutorial is available in the default installation of R. Juste type data(“USArrests”) Reply, &amp; Kassambara. (2018, October 21). K-Means clustering in R: Algorithm and practical examples. Retrieved April 24, 2021, from https://www.datanovia.com/en/lessons/k-means-clustering-in-r-algorith-and-practical-examples/
+
